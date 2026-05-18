@@ -106,7 +106,8 @@ const Header: React.FC = () => {
             </button>
 
             <div className="flex-1 lg:flex-initial flex justify-center lg:justify-start">
-              <Logo />
+              <Logo showText={false} className="lg:hidden" />
+              <Logo showText={true} className="hidden lg:block" />
             </div>
 
             {/* Center search (desktop) */}

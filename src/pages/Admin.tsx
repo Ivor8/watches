@@ -43,7 +43,7 @@ export const AdminLogin: React.FC = () => {
             Sign in
           </button>
           <p className="text-xs text-gray-500 text-center mt-4">
-            Demo password: admin123
+            {/* Demo password: admin123 */}
           </p>
         </form>
       </div>

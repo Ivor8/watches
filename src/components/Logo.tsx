@@ -4,10 +4,11 @@ import { Link } from 'react-router-dom';
 interface LogoProps {
   variant?: 'dark' | 'light';
   showTagline?: boolean;
+  showText?: boolean;
   className?: string;
 }
 
-const Logo: React.FC<LogoProps> = ({ variant = 'dark', showTagline = true, className = '' }) => {
+const Logo: React.FC<LogoProps> = ({ variant = 'dark', showTagline = true, showText = true, className = '' }) => {
   const color = variant === 'dark' ? '#0A0A0A' : '#FFFFFF';
   return (
     <Link to="/" className={`group inline-flex items-center gap-3 ${className}`}>
@@ -30,22 +31,24 @@ const Logo: React.FC<LogoProps> = ({ variant = 'dark', showTagline = true, class
         <rect x="29" y="6" width="6" height="6" rx="1" stroke={color} strokeWidth="2" />
         <rect x="29" y="52" width="6" height="6" rx="1" stroke={color} strokeWidth="2" />
       </svg>
-      <div className="flex flex-col leading-none">
-        <span
-          className="font-serif text-[15px] sm:text-[17px] font-bold tracking-[0.15em]"
-          style={{ color }}
-        >
-          ORIGINAL WATCHES
-        </span>
-        {showTagline && (
+      {showText && (
+        <div className="flex flex-col leading-none">
           <span
-            className="text-[9px] sm:text-[10px] tracking-[0.3em] mt-1 font-light"
-            style={{ color: variant === 'dark' ? '#666' : '#bbb' }}
+            className="font-serif text-[15px] sm:text-[17px] font-bold tracking-[0.15em]"
+            style={{ color }}
           >
-            TIMELESS · UNMATCHED PRECISION
+            ORIGINAL WATCHES SHOP
           </span>
-        )}
-      </div>
+          {showTagline && (
+            <span
+              className="text-[9px] sm:text-[10px] tracking-[0.3em] mt-1 font-light"
+              style={{ color: variant === 'dark' ? '#666' : '#bbb' }}
+            >
+              TIMELESS · UNMATCHED PRECISION
+            </span>
+          )}
+        </div>
+      )}
     </Link>
   );
 };
