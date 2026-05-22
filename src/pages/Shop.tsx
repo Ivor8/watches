@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import { supabase } from '@/lib/supabase';
+import { productsApi, collectionsApi } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal, X } from 'lucide-react';
 
@@ -10,9 +10,9 @@ interface ShopProps {
   brandHandle?: string;
 }
 
-const Shop: React.FC<ShopProps> = ({ brandHandle: brandProp }) => {
+const Shop: React.FC<ShopProps> = ({ brandProp: _brandProp }) => {
   const params = useParams();
-  const brandHandle = brandProp || params.brand;
+  const brandHandle = _brandProp || params.brand;
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q')?.toLowerCase() || '';
   const categoryParam = searchParams.get('category') || '';
@@ -31,34 +31,20 @@ const Shop: React.FC<ShopProps> = ({ brandHandle: brandProp }) => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      let pq = supabase.from('ecom_products').select('*').eq('status', 'active');
-
-      if (brandHandle) {
-        const { data: col } = await supabase
-          .from('ecom_collections')
-          .select('*')
-          .eq('handle', brandHandle)
-          .single();
-        if (col) {
+      try {
+        if (brandHandle) {
+          const col = await collectionsApi.getByHandle(brandHandle);
           setCollection(col);
-          const { data: links } = await supabase
-            .from('ecom_product_collections')
-            .select('product_id')
-            .eq('collection_id', col.id);
-          const ids = (links || []).map((l) => l.product_id);
-          if (ids.length) pq = pq.in('id', ids);
-          else {
-            setProducts([]);
-            setLoading(false);
-            return;
-          }
+          const allProducts = await productsApi.getAll();
+          const filtered = allProducts.filter((p: any) => p.vendor?.toLowerCase() === col.title?.toLowerCase());
+          setProducts(filtered);
+        } else {
+          const allProducts = await productsApi.getAll();
+          setProducts(allProducts);
         }
-      } else {
-        setCollection(null);
+      } catch (err) {
+        console.error('Error loading products:', err);
       }
-
-      const { data } = await pq;
-      setProducts(data || []);
       setLoading(false);
     };
     load();

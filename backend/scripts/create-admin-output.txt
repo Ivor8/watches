@@ -1,0 +1,53 @@
+﻿node : (node:12496) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated 
+option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and 
+will be removed in the next major version
+At line:1 char:39
++ ... \Desktop\watches' ; node backend/scripts/create-admin.js 2>&1 | Out-F ...
++                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:12496) [M...t major version 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:12496) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated 
+option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 
+and will be removed in the next major version
+MongoDB connection error: MongooseServerSelectionError: connect ECONNREFUSED 
+::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+    at _handleConnectionErrors (C:\Users\DELL\Desktop\watches\backend\node_modu
+les\mongoose\lib\connection.js:1169:11)
+    at NativeConnection.openUri (C:\Users\DELL\Desktop\watches\backend\node_mod
+ules\mongoose\lib\connection.js:1100:11)
+    at async connectDB 
+(file:///C:/Users/DELL/Desktop/watches/backend/config/database.js:6:5)
+    at async main 
+(file:///C:/Users/DELL/Desktop/watches/backend/scripts/create-admin.js:14:3) {
+  errorLabelSet: Set(0) {},
+  reason: TopologyDescription {
+    type: 'Unknown',
+    servers: Map(1) { 'localhost:27017' => [ServerDescription] },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: null,
+    maxElectionId: null,
+    maxSetVersion: null,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  },
+  code: undefined,
+  cause: TopologyDescription {
+    type: 'Unknown',
+    servers: Map(1) { 'localhost:27017' => [ServerDescription] },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: null,
+    maxElectionId: null,
+    maxSetVersion: null,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  }
+}

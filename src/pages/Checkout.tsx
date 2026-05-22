@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useCart } from '@/contexts/CartContext';
-import { supabase } from '@/lib/supabase';
+import { ordersApi, settingsApi } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Check, Phone, Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,12 +43,9 @@ const Checkout: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('shop_settings')
-      .select('*')
-      .eq('id', 1)
-      .single()
-      .then(({ data }) => data && setSettings(data));
+    settingsApi.get()
+      .then((data) => setSettings(data))
+      .catch((err) => console.error('Error fetching settings:', err));
   }, []);
 
   const shippingCents = items.length > 0 ? settings.shipping_fee || 4809 : 0;
@@ -81,67 +78,37 @@ const Checkout: React.FC = () => {
         }),
       }).catch(() => {});
 
-      // Create customer
-      const { data: customer } = await supabase
-        .from('ecom_customers')
-        .upsert(
-          {
-            email: form.email,
-            name: `${form.firstName} ${form.lastName}`,
-            phone: form.phone,
-            address: {
-              line1: form.address,
-              city: form.city,
-              state: form.state,
-              postal_code: form.zip,
-              country: form.country,
-            },
-          },
-          { onConflict: 'email' }
-        )
-        .select('id')
-        .single();
+      // Create order with items
+      const orderData = {
+        status: 'pending',
+        subtotal: subtotalCents,
+        tax: 0,
+        shipping: shippingCents,
+        total: totalCents,
+        shipping_address: {
+          name: `${form.firstName} ${form.lastName}`,
+          line1: form.address,
+          city: form.city,
+          state: form.state,
+          postal_code: form.zip,
+          country: form.country,
+          phone: form.phone,
+          email: form.email,
+        },
+        notes: `Payment method: ${payment}. ${form.notes}`,
+        items: items.map((item) => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          product_name: item.name,
+          variant_title: item.variant_title || null,
+          sku: item.sku || null,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total: item.price * item.quantity,
+        })),
+      };
 
-      // Create order with status 'pending' (manual payment workflow per spec)
-      const { data: order, error } = await supabase
-        .from('ecom_orders')
-        .insert({
-          customer_id: customer?.id,
-          status: 'pending',
-          subtotal: subtotalCents,
-          tax: 0,
-          shipping: shippingCents,
-          total: totalCents,
-          shipping_address: {
-            name: `${form.firstName} ${form.lastName}`,
-            line1: form.address,
-            city: form.city,
-            state: form.state,
-            postal_code: form.zip,
-            country: form.country,
-            phone: form.phone,
-            email: form.email,
-          },
-          notes: `Payment method: ${payment}. ${form.notes}`,
-        })
-        .select('id')
-        .single();
-
-      if (error) throw error;
-
-      // Create order items
-      const orderItems = items.map((item) => ({
-        order_id: order!.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id || null,
-        product_name: item.name,
-        variant_title: item.variant_title || null,
-        sku: item.sku || null,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total: item.price * item.quantity,
-      }));
-      await supabase.from('ecom_order_items').insert(orderItems);
+      const order = await ordersApi.create(orderData);
 
       clearCart();
       toast.success('Order received!', { description: 'We will contact you with payment instructions.' });

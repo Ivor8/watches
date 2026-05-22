@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, User, Menu, X, ChevronDown } from 'lucide-react';
 import Logo from './Logo';
 import { useCart } from '@/contexts/CartContext';
-import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { productsApi, settingsApi } from '@/lib/api';
 
 const NAV_LINKS = [
   { name: 'Home', to: '/' },
@@ -43,12 +43,13 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    supabase
-      .from('shop_settings')
-      .select('promo_text')
-      .eq('id', 1)
-      .single()
-      .then(({ data }) => data?.promo_text && setPromoText(data.promo_text));
+    settingsApi.get()
+      .then((data) => {
+        if (data?.promo_text) setPromoText(data.promo_text);
+      })
+      .catch((err) => {
+        console.error('Failed to load settings', err);
+      });
   }, []);
 
   useEffect(() => {
@@ -57,13 +58,13 @@ const Header: React.FC = () => {
       return;
     }
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from('ecom_products')
-        .select('id, name, handle, vendor, images, price')
-        .or(`name.ilike.%${searchTerm}%,vendor.ilike.%${searchTerm}%,product_type.ilike.%${searchTerm}%`)
-        .eq('status', 'active')
-        .limit(6);
-      setSuggestions(data || []);
+      try {
+        const data = await productsApi.search({ q: searchTerm });
+        setSuggestions(data || []);
+      } catch (err) {
+        console.error('Product search failed', err);
+        setSuggestions([]);
+      }
     }, 200);
     return () => clearTimeout(t);
   }, [searchTerm]);

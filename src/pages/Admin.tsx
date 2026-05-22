@@ -1,25 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { authApi, ordersApi, productsApi, settingsApi, chatApi, getAuthToken, removeAuthToken, setAuthToken } from '@/lib/api';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
-import { LogOut, LayoutDashboard, Package, ShoppingCart, MessageSquare, Users, Settings } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, ShoppingCart, MessageSquare, Users, Settings as SettingsIcon } from 'lucide-react';
 
-const ADMIN_KEY_STORAGE = 'ows_admin_session';
+const ADMIN_TOKEN_STORAGE = 'admin_token';
 
 export const AdminLogin: React.FC = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const onLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (getAuthToken()) {
+      navigate('/admin/dashboard');
+    }
+  }, []);
+
+  const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple gate; in production, use Supabase Auth + admin role
-    if (password === 'admin123' || password === 'luxury2024') {
-      localStorage.setItem(ADMIN_KEY_STORAGE, 'true');
+    setLoading(true);
+
+    try {
+      const response = await authApi.login(email, password);
+      setAuthToken(response.token);
       navigate('/admin/dashboard');
       toast.success('Welcome, Admin');
-    } else {
+    } catch (error: any) {
       toast.error('Invalid credentials');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,6 +44,14 @@ export const AdminLogin: React.FC = () => {
         <h1 className="font-serif text-2xl text-center mb-6">Admin Login</h1>
         <form onSubmit={onLogin}>
           <input
+            type="email"
+            placeholder="Admin email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-[#D4AF37] mb-4"
+            required
+          />
+          <input
             type="password"
             placeholder="Admin password"
             value={password}
@@ -39,12 +59,12 @@ export const AdminLogin: React.FC = () => {
             className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-[#D4AF37] mb-4"
             required
           />
-          <button className="w-full bg-[#059669] hover:bg-[#047857] text-white py-3 text-sm uppercase tracking-wider font-semibold">
-            Sign in
+          <button 
+            disabled={loading}
+            className="w-full bg-[#059669] hover:bg-[#047857] text-white py-3 text-sm uppercase tracking-wider font-semibold disabled:opacity-50"
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
-          <p className="text-xs text-gray-500 text-center mt-4">
-            {/* Demo password: admin123 */}
-          </p>
         </form>
       </div>
     </div>
@@ -56,7 +76,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const location = useLocation();
 
   useEffect(() => {
-    if (localStorage.getItem(ADMIN_KEY_STORAGE) !== 'true') {
+    if (!getAuthToken()) {
       navigate('/admin');
     }
   }, [navigate]);
@@ -67,11 +87,11 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
     { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { to: '/admin/messages', label: 'Messages', icon: MessageSquare },
     { to: '/admin/admins', label: 'Admins', icon: Users },
-    { to: '/admin/settings', label: 'Settings', icon: Settings },
+    { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   const logout = () => {
-    localStorage.removeItem(ADMIN_KEY_STORAGE);
+    removeAuthToken();
     navigate('/admin');
   };
 
@@ -108,21 +128,27 @@ export const AdminDashboard: React.FC = () => {
   const [recent, setRecent] = useState<any[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('ecom_orders').select('total'),
-      supabase.from('ecom_products').select('id', { count: 'exact', head: true }),
-      supabase.from('chat_messages').select('id', { count: 'exact', head: true }),
-      supabase.from('ecom_orders').select('*').order('created_at', { ascending: false }).limit(5),
-    ]).then(([orderRes, prodRes, msgRes, recentRes]) => {
-      const revenue = (orderRes.data || []).reduce((s: number, o: any) => s + o.total, 0);
-      setStats({
-        orders: orderRes.data?.length || 0,
-        revenue,
-        products: prodRes.count || 0,
-        messages: msgRes.count || 0,
-      });
-      setRecent(recentRes.data || []);
-    });
+    const loadStats = async () => {
+      try {
+        const [dashboard, products, messages] = await Promise.all([
+          ordersApi.getDashboardStats(),
+          productsApi.getAll(),
+          chatApi.getAll(),
+        ]);
+
+        setStats({
+          orders: dashboard.orders || 0,
+          revenue: dashboard.revenue || 0,
+          products: products.length,
+          messages: messages.length,
+        });
+        setRecent(dashboard.recentOrders || []);
+      } catch (error) {
+        console.error('Failed to load admin dashboard', error);
+      }
+    };
+
+    loadStats();
   }, []);
 
   return (
@@ -150,8 +176,8 @@ export const AdminDashboard: React.FC = () => {
           </thead>
           <tbody>
             {recent.map((o) => (
-              <tr key={o.id} className="border-b last:border-0">
-                <td className="py-3 font-mono text-xs">{o.id.slice(0, 8)}</td>
+              <tr key={o._id} className="border-b last:border-0">
+                <td className="py-3 font-mono text-xs">{String(o._id).slice(0, 8)}</td>
                 <td>{new Date(o.created_at).toLocaleDateString()}</td>
                 <td className="font-semibold">${(o.total / 100).toFixed(2)}</td>
                 <td><span className="uppercase text-xs">{o.status}</span></td>
@@ -170,23 +196,37 @@ export const AdminDashboard: React.FC = () => {
 export const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
 
-  const load = () => {
-    supabase.from('ecom_orders').select('*').order('created_at', { ascending: false }).then(({ data }) => setOrders(data || []));
+  const load = async () => {
+    try {
+      const data = await ordersApi.getAll();
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Failed to load orders', error);
+    }
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
-    await supabase.from('ecom_orders').update({ status }).eq('id', id);
-    toast.success('Order updated');
-    load();
+    try {
+      await ordersApi.updateStatus(id, status);
+      toast.success('Order updated');
+      load();
+    } catch (error) {
+      console.error('Failed to update order', error);
+      toast.error('Could not update order status');
+    }
   };
 
   const remove = async (id: string) => {
     if (!confirm('Delete this order?')) return;
-    await supabase.from('ecom_order_items').delete().eq('order_id', id);
-    await supabase.from('ecom_orders').delete().eq('id', id);
-    load();
-    toast.success('Order deleted');
+    try {
+      await ordersApi.delete(id);
+      toast.success('Order deleted');
+      load();
+    } catch (error) {
+      console.error('Failed to delete order', error);
+      toast.error('Could not delete order');
+    }
   };
 
   return (
@@ -199,17 +239,17 @@ export const AdminOrders: React.FC = () => {
           </thead>
           <tbody>
             {orders.map((o) => (
-              <tr key={o.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="p-4 font-mono text-xs">{o.id.slice(0, 8)}</td>
+              <tr key={o._id} className="border-b last:border-0 hover:bg-gray-50">
+                <td className="p-4 font-mono text-xs">{String(o._id).slice(0, 8)}</td>
                 <td>{o.shipping_address?.email || '—'}</td>
                 <td>{new Date(o.created_at).toLocaleDateString()}</td>
                 <td className="font-semibold">${(o.total / 100).toFixed(2)}</td>
                 <td>
-                  <select value={o.status} onChange={(e) => updateStatus(o.id, e.target.value)} className="border border-gray-200 px-2 py-1 text-xs">
+                  <select value={o.status} onChange={(e) => updateStatus(o._id, e.target.value)} className="border border-gray-200 px-2 py-1 text-xs">
                     {['pending', 'paid', 'shipped', 'delivered', 'cancelled', 'refunded'].map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </td>
-                <td><button onClick={() => remove(o.id)} className="text-red-500 text-xs hover:underline">Delete</button></td>
+                <td><button onClick={() => remove(o._id)} className="text-red-500 text-xs hover:underline">Delete</button></td>
               </tr>
             ))}
             {orders.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-500">No orders</td></tr>}
@@ -225,15 +265,26 @@ export const AdminProducts: React.FC = () => {
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const load = () => {
-    supabase.from('ecom_products').select('*').order('created_at', { ascending: false }).then(({ data }) => setProducts(data || []));
+  const load = async () => {
+    try {
+      const data = await productsApi.getAll();
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Failed to load products', error);
+    }
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []);
 
   const remove = async (id: string) => {
     if (!confirm('Delete product?')) return;
-    await supabase.from('ecom_products').delete().eq('id', id);
-    load();
+    try {
+      await productsApi.delete(id);
+      toast.success('Product deleted');
+      load();
+    } catch (error) {
+      console.error('Failed to delete product', error);
+      toast.error('Could not delete product');
+    }
   };
 
   const save = async (e: React.FormEvent) => {
@@ -243,15 +294,31 @@ export const AdminProducts: React.FC = () => {
     if (typeof p.tags === 'string') p.tags = p.tags.split(',').map((s: string) => s.trim()).filter(Boolean);
     p.price = Math.round(Number(p.price));
     p.inventory_qty = Number(p.inventory_qty) || 0;
-    if (p.id) {
-      await supabase.from('ecom_products').update(p).eq('id', p.id);
-    } else {
-      await supabase.from('ecom_products').insert(p);
+
+    const formData = new FormData();
+    Object.entries(p).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        formData.append(key, value.join(', '));
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+
+    try {
+      if (p._id) {
+        await productsApi.update(p._id, formData);
+      } else {
+        await productsApi.create(formData);
+      }
+      setShowForm(false);
+      setEditing(null);
+      load();
+      toast.success('Product saved');
+    } catch (error) {
+      console.error('Failed to save product', error);
+      toast.error('Could not save product');
     }
-    setShowForm(false);
-    setEditing(null);
-    load();
-    toast.success('Product saved');
   };
 
   return (
@@ -285,7 +352,7 @@ export const AdminProducts: React.FC = () => {
           </thead>
           <tbody>
             {products.map((p) => (
-              <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={p._id} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="p-2"><img src={p.images?.[0]} className="w-12 h-12 object-cover" /></td>
                 <td>{p.name}</td>
                 <td>{p.vendor}</td>
@@ -293,7 +360,7 @@ export const AdminProducts: React.FC = () => {
                 <td>{p.inventory_qty}</td>
                 <td>
                   <button onClick={() => { setEditing(p); setShowForm(true); }} className="text-blue-600 text-xs mr-3 hover:underline">Edit</button>
-                  <button onClick={() => remove(p.id)} className="text-red-500 text-xs hover:underline">Delete</button>
+                  <button onClick={() => remove(p._id)} className="text-red-500 text-xs hover:underline">Delete</button>
                 </td>
               </tr>
             ))}
@@ -309,36 +376,54 @@ export const AdminMessages: React.FC = () => {
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [reply, setReply] = useState('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    supabase.from('chat_messages').select('session_id').then(({ data }) => {
-      const unique = Array.from(new Set((data || []).map((d: any) => d.session_id)));
-      setSessions(unique);
-    });
+    const loadSessions = async () => {
+      try {
+        const data = await chatApi.getAll();
+        const messages = Array.isArray(data) ? data : [];
+        const unique = Array.from(new Set(messages.map((item: any) => item.session_id)));
+        setSessions(unique as string[]);
+      } catch (error) {
+        console.error('Failed to load chat sessions', error);
+      }
+    };
 
-    const ch = supabase
-      .channel('admin-chat')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
-        const sid = (payload.new as any).session_id;
-        setSessions((prev) => prev.includes(sid) ? prev : [...prev, sid]);
-        if (sid === activeSession) {
-          setMessages((m) => [...m, payload.new as any]);
-        }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(ch); };
-  }, [activeSession]);
+    loadSessions();
+  }, []);
 
   useEffect(() => {
     if (!activeSession) return;
-    supabase.from('chat_messages').select('*').eq('session_id', activeSession).order('created_at').then(({ data }) => setMessages(data || []));
+
+    const loadMessages = async () => {
+      try {
+        const data = await chatApi.getBySession(activeSession);
+        setMessages(data || []);
+      } catch (error) {
+        console.error('Failed to load messages', error);
+      }
+    };
+
+    loadMessages();
+    intervalRef.current = setInterval(loadMessages, 2000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [activeSession]);
 
   const send = async () => {
     if (!reply.trim() || !activeSession) return;
-    await supabase.from('chat_messages').insert({ session_id: activeSession, sender: 'admin', message: reply.trim() });
-    setReply('');
+    try {
+      await chatApi.send(activeSession, 'admin', reply.trim());
+      setReply('');
+      const data = await chatApi.getBySession(activeSession);
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Failed to send message', error);
+      toast.error('Message send failed');
+    }
   };
 
   return (
@@ -375,34 +460,111 @@ export const AdminMessages: React.FC = () => {
   );
 };
 
-export const AdminAdmins: React.FC = () => (
-  <AdminLayout>
-    <h1 className="font-serif text-3xl mb-8">Admins</h1>
-    <div className="bg-white border p-8">
-      <p className="text-gray-600 mb-4">Admin user management. In production, this would integrate with Supabase Auth roles.</p>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center border-b pb-3">
-          <div>
-            <p className="font-semibold">Super Admin</p>
-            <p className="text-xs text-gray-500">admin@originalwatches.shop</p>
+export const AdminAdmins: React.FC = () => {
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [newAdmin, setNewAdmin] = useState({ email: '', name: '', password: '', role: 'admin' });
+
+  const load = async () => {
+    try {
+      const data = await authApi.getAdmins();
+      setAdmins(data || []);
+    } catch (error) {
+      console.error('Failed to load admins', error);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await authApi.createAdmin(newAdmin.email, newAdmin.password, newAdmin.name, newAdmin.role);
+      toast.success('Admin created');
+      setNewAdmin({ email: '', name: '', password: '', role: 'admin' });
+      load();
+    } catch (error) {
+      console.error('Failed to create admin', error);
+      toast.error('Could not create admin');
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this admin user?')) return;
+    try {
+      await authApi.deleteAdmin(id);
+      toast.success('Admin deleted');
+      load();
+    } catch (error) {
+      console.error('Failed to delete admin', error);
+      toast.error('Could not delete admin');
+    }
+  };
+
+  return (
+    <AdminLayout>
+      <h1 className="font-serif text-3xl mb-8">Admins</h1>
+      <div className="grid gap-8">
+        <div className="bg-white border border-gray-100 p-8">
+          <h2 className="font-semibold mb-4">Create a New Admin</h2>
+          <form onSubmit={create} className="grid gap-4 max-w-2xl">
+            <input required type="email" placeholder="Email" value={newAdmin.email} onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })} className="border border-gray-200 px-4 py-3 text-sm" />
+            <input required placeholder="Name" value={newAdmin.name} onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })} className="border border-gray-200 px-4 py-3 text-sm" />
+            <input required type="password" placeholder="Password" value={newAdmin.password} onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })} className="border border-gray-200 px-4 py-3 text-sm" />
+            <select value={newAdmin.role} onChange={(e) => setNewAdmin({ ...newAdmin, role: e.target.value })} className="border border-gray-200 px-4 py-3 text-sm">
+              <option value="admin">Admin</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+            <button className="bg-[#059669] text-white px-6 py-3 text-sm uppercase tracking-wider">Create Admin</button>
+          </form>
+        </div>
+
+        <div className="bg-white border border-gray-100 p-8">
+          <h2 className="font-semibold mb-4">Admin Users</h2>
+          <div className="space-y-3">
+            {admins.map((admin) => (
+              <div key={admin._id} className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div>
+                  <p className="font-semibold">{admin.name}</p>
+                  <p className="text-xs text-gray-500">{admin.email}</p>
+                </div>
+                <button onClick={() => remove(admin._id)} className="text-red-500 text-xs hover:underline">Delete</button>
+              </div>
+            ))}
+            {admins.length === 0 && <p className="text-gray-500">No admin users found.</p>}
           </div>
-          <span className="text-xs uppercase bg-[#D4AF37] text-white px-3 py-1">Owner</span>
         </div>
       </div>
-    </div>
-  </AdminLayout>
-);
+    </AdminLayout>
+  );
+};
 
 export const AdminSettings: React.FC = () => {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    supabase.from('shop_settings').select('*').eq('id', 1).single().then(({ data }) => setSettings(data));
+    const loadSettings = async () => {
+      try {
+        const data = await settingsApi.get();
+        setSettings(data);
+      } catch (error) {
+        console.error('Failed to load settings', error);
+      }
+    };
+
+    loadSettings();
   }, []);
 
   const save = async () => {
-    await supabase.from('shop_settings').update(settings).eq('id', 1);
-    toast.success('Settings saved');
+    if (!settings) return;
+    try {
+      await settingsApi.update(settings);
+      toast.success('Settings saved');
+    } catch (error) {
+      console.error('Failed to save settings', error);
+      toast.error('Could not save settings');
+    }
   };
 
   if (!settings) return <AdminLayout><p>Loading...</p></AdminLayout>;

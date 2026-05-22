@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import { supabase } from '@/lib/supabase';
+import { productsApi } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { Minus, Plus, ShoppingBag, Heart, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -31,24 +31,23 @@ const ProductDetail: React.FC = () => {
     setLoading(true);
     setActiveImg(0);
     setQty(1);
-    supabase
-      .from('ecom_products')
-      .select('*')
-      .eq('handle', slug)
-      .single()
-      .then(async ({ data }) => {
+    
+    productsApi.getByHandle(slug)
+      .then(async (data) => {
         setProduct(data);
         if (data) {
-          const { data: rel } = await supabase
-            .from('ecom_products')
-            .select('*')
-            .eq('vendor', data.vendor)
-            .neq('id', data.id)
-            .limit(4);
-          setRelated(rel || []);
+          const allProducts = await productsApi.getAll();
+          const rel = allProducts
+            .filter((p: any) => p.vendor === data.vendor && p.id !== data.id)
+            .slice(0, 4);
+          setRelated(rel);
         }
         setLoading(false);
         window.scrollTo({ top: 0, behavior: 'instant' as any });
+      })
+      .catch((err) => {
+        console.error('Error fetching product:', err);
+        setLoading(false);
       });
   }, [slug]);
 

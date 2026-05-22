@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/Layout';
 import ProductCard from '@/components/ProductCard';
-import { supabase } from '@/lib/supabase';
+import { productsApi, collectionsApi } from '@/lib/api';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 
 const HERO_IMAGES = [
@@ -18,21 +18,19 @@ const Home: React.FC = () => {
   const [heroIdx, setHeroIdx] = useState(0);
 
   useEffect(() => {
-    supabase
-      .from('ecom_products')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(8)
-      .then(({ data }) => setProducts(data || []));
+    productsApi.getAll()
+      .then((data) => {
+        const active = data.filter((p: any) => p.status === 'active').slice(0, 8);
+        setProducts(active);
+      })
+      .catch((err) => console.error('Error fetching products:', err));
 
-    supabase
-      .from('ecom_collections')
-      .select('*')
-      .eq('is_visible', true)
-      .not('image_url', 'is', null)
-      .limit(6)
-      .then(({ data }) => setBrands(data || []));
+    collectionsApi.getAll()
+      .then((data) => {
+        const visible = data.filter((c: any) => c.is_visible && c.image_url).slice(0, 6);
+        setBrands(visible);
+      })
+      .catch((err) => console.error('Error fetching collections:', err));
   }, []);
 
   useEffect(() => {

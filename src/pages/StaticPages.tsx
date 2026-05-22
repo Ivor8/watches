@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { supabase } from '@/lib/supabase';
+import { contactApi, ordersApi, settingsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { Phone, Mail, MapPin, Send } from 'lucide-react';
 
@@ -35,14 +35,18 @@ export const Contact: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.from('shop_settings').select('*').eq('id', 1).single().then(({ data }) => data && setSettings(data));
+    settingsApi.get()
+      .then((data) => data && setSettings(data))
+      .catch((err) => {
+        console.error('Failed to load contact settings', err);
+      });
   }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await supabase.from('contact_messages').insert(form);
+      await contactApi.send(form);
       await fetch('https://famous.ai/api/crm/6a0b1742f18aa958975dcc88/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,7 +54,8 @@ export const Contact: React.FC = () => {
       }).catch(() => {});
       toast.success('Message sent! We will reply shortly.');
       setForm({ name: '', email: '', subject: '', message: '' });
-    } catch {
+    } catch (err) {
+      console.error('Contact submission failed', err);
       toast.error('Failed to send message');
     } finally {
       setLoading(false);
@@ -205,11 +210,11 @@ export const Account: React.FC = () => {
 
   const lookup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: customer } = await supabase.from('ecom_customers').select('id').eq('email', email).maybeSingle();
-    if (customer) {
-      const { data } = await supabase.from('ecom_orders').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false });
+    try {
+      const data = await ordersApi.getByCustomerEmail(email);
       setOrders(data || []);
-    } else {
+    } catch (err) {
+      console.error('Failed to lookup orders', err);
       setOrders([]);
     }
     setSearched(true);

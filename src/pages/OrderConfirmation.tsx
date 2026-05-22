@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { supabase } from '@/lib/supabase';
+import { ordersApi } from '@/lib/api';
 import { Check } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 
@@ -14,8 +14,16 @@ const OrderConfirmation: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('ecom_orders').select('*').eq('id', id).single().then(({ data }) => setOrder(data));
-    supabase.from('ecom_order_items').select('*').eq('order_id', id).then(({ data }) => setItems(data || []));
+    const loadOrder = async () => {
+      try {
+        const data = await ordersApi.getById(id);
+        setOrder(data);
+        setItems(data.items || []);
+      } catch (err) {
+        console.error('Failed to load order', err);
+      }
+    };
+    loadOrder();
   }, [id]);
 
   return (

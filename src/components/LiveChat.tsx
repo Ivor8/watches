@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Send, Minus } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { chatApi } from '@/lib/api';
 
 interface Msg {
-  id: string;
+  _id: string;
   sender: string;
   message: string;
   created_at: string;
@@ -24,31 +24,25 @@ const LiveChat: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [input, setInput] = useState('');
   const sessionId = useRef(getSessionId());
   const endRef = useRef<HTMLDivElement>(null);
+  const pollInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', sessionId.current)
-      .order('created_at')
-      .then(({ data }) => setMessages(data || []));
+    const loadMessages = async () => {
+      try {
+        const data = await chatApi.getBySession(sessionId.current);
+        setMessages(data || []);
+      } catch (err) {
+        console.error('Error loading messages:', err);
+      }
+    };
 
-    const channel = supabase
-      .channel(`chat-${sessionId.current}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${sessionId.current}` },
-        (payload) => {
-          setMessages((prev) => {
-            if (prev.find((m) => m.id === (payload.new as any).id)) return prev;
-            return [...prev, payload.new as Msg];
-          });
-        }
-      )
-      .subscribe();
+    loadMessages();
+
+    // Poll for new messages every 2 seconds
+    pollInterval.current = setInterval(loadMessages, 2000);
 
     return () => {
-      supabase.removeChannel(channel);
+      if (pollInterval.current) clearInterval(pollInterval.current);
     };
   }, []);
 
@@ -61,11 +55,13 @@ const LiveChat: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     if (!input.trim()) return;
     const text = input.trim();
     setInput('');
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId.current,
-      sender: 'customer',
-      message: text,
-    });
+    try {
+      await chatApi.send(sessionId.current, 'customer', text);
+      const data = await chatApi.getBySession(sessionId.current);
+      setMessages(data || []);
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
   };
 
   return (
@@ -97,7 +93,7 @@ const LiveChat: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         )}
         {messages.map((m) => (
           <div
-            key={m.id}
+            key={m._id}
             className={`flex ${m.sender === 'customer' ? 'justify-end' : 'justify-start'}`}
           >
             <div

@@ -1,0 +1,166 @@
+import Product from '../models/Product.js';
+import path from 'path';
+
+export const getAllProducts = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = status ? { status } : { status: 'active' };
+    const products = await Product.find(query).sort({ created_at: -1 });
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getProductByHandle = async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const product = await Product.findOne({ handle });
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getProductById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createProduct = async (req, res) => {
+  try {
+    const { name, handle, vendor, product_type, price, description, tags, metadata, inventory_qty, status, sku, images: bodyImages } = req.body;
+    
+    let images = [];
+    if (req.files && req.files.images) {
+      const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+      images = imageFiles.map((file) => `/uploads/products/${file.name}`);
+    } else if (bodyImages) {
+      images = typeof bodyImages === 'string'
+        ? bodyImages.split(',').map((item) => item.trim()).filter(Boolean)
+        : Array.isArray(bodyImages)
+          ? bodyImages.map((item) => String(item).trim()).filter(Boolean)
+          : [];
+    }
+    
+    const product = new Product({
+      name,
+      handle,
+      vendor,
+      product_type,
+      price: Math.round(Number(price)),
+      description,
+      tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      metadata,
+      inventory_qty: Number(inventory_qty) || 0,
+      status: status || 'active',
+      images,
+      sku,
+    });
+    
+    await product.save();
+    res.status(201).json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, handle, vendor, product_type, price, description, tags, metadata, inventory_qty, status, sku } = req.body;
+    
+    const updateData = {
+      name,
+      handle,
+      vendor,
+      product_type,
+      price: price ? Math.round(Number(price)) : undefined,
+      description,
+      tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+      metadata,
+      inventory_qty: inventory_qty ? Number(inventory_qty) : undefined,
+      status,
+      sku,
+    };
+    
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    
+    // Handle new images from uploads or body
+    if (req.files && req.files.images) {
+      const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+      updateData.images = imageFiles.map((file) => `/uploads/products/${file.name}`);
+    } else if (req.body.images) {
+      const bodyImages = req.body.images;
+      updateData.images = typeof bodyImages === 'string'
+        ? bodyImages.split(',').map((item) => item.trim()).filter(Boolean)
+        : Array.isArray(bodyImages)
+          ? bodyImages.map((item) => String(item).trim()).filter(Boolean)
+          : undefined;
+    }
+    
+    const product = await Product.findByIdAndUpdate(id, updateData, { new: true });
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Product.findByIdAndDelete(id);
+    res.json({ message: 'Product deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const searchProducts = async (req, res) => {
+  try {
+    const { q, vendor, product_type, priceMax } = req.query;
+    
+    let query = { status: 'active' };
+    
+    if (q) {
+      query.$or = [
+        { name: new RegExp(q, 'i') },
+        { vendor: new RegExp(q, 'i') },
+        { product_type: new RegExp(q, 'i') },
+      ];
+    }
+    
+    if (vendor) {
+      query.vendor = new RegExp(vendor, 'i');
+    }
+    
+    if (product_type) {
+      query.product_type = product_type;
+    }
+    
+    if (priceMax) {
+      query.price = { $lte: Number(priceMax) * 100 };
+    }
+    
+    const products = await Product.find(query);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
