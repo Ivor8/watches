@@ -38,6 +38,9 @@ const allowedOrigins = [
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
     if (allowedOrigins.includes(origin) || /^https?:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
       return callback(null, true);
     }
@@ -46,17 +49,19 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
+  optionsSuccessStatus: 204,
 };
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: true,
     methods: ['GET', 'POST'],
   },
 });
 
 // Middleware
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 

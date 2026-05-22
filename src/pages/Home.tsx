@@ -152,7 +152,7 @@ const Home: React.FC = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {products.map((p, i) => (
-            <ProductCard key={p.id} product={p} index={i} />
+            <ProductCard key={p._id || p.handle || i} product={p} index={i} />
           ))}
         </div>
 

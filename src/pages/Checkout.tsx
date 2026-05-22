@@ -5,6 +5,7 @@ import { useCart } from '@/contexts/CartContext';
 import { ordersApi, settingsApi } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { Check, Phone, Mail } from 'lucide-react';
+import { getPublicUrl } from '@/lib/storage';
 import { toast } from 'sonner';
 
 const PAYMENT_METHODS = [
@@ -209,7 +210,7 @@ const Checkout: React.FC = () => {
             <div className="border border-gray-200 p-6 space-y-5">
               {items.map((item) => (
                 <div key={item.product_id + (item.variant_id || '')} className="flex items-center gap-3">
-                  <img src={item.image} alt={item.name} className="w-14 h-14 object-cover bg-gray-50" />
+                  <img src={getPublicUrl(item.image) || '/placeholder.svg'} alt={item.name} className="w-14 h-14 object-cover bg-gray-50" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium leading-tight">{item.name}</p>
                     <p className="text-gray-500">× {item.quantity}</p>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useCart } from '@/contexts/CartContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
+import { getPublicUrl } from '@/lib/storage';
 
 const CartPage: React.FC = () => {
   const { items, removeItem, updateQuantity, subtotalCents, format } = useCart();
@@ -37,7 +38,7 @@ const CartPage: React.FC = () => {
               <div key={item.product_id + (item.variant_id || '')} className="grid grid-cols-[80px_1fr] md:grid-cols-[1fr_120px_140px_60px] gap-4 py-6 border-b items-center">
                 <div className="md:flex items-center gap-4 col-span-2 md:col-span-1">
                   <div className="flex items-center gap-4">
-                    <img src={item.image} alt={item.name} className="w-20 h-20 object-cover bg-gray-50" />
+                    <img src={getPublicUrl(item.image) || '/placeholder.svg'} alt={item.name} className="w-20 h-20 object-cover bg-gray-50" />
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-gray-500">{item.brand}</p>
                       <Link to={`/product/${item.handle}`} className="font-medium hover:text-[#D4AF37]">{item.name}</Link>

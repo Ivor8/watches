@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ShoppingBag, Heart } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { getPublicUrl } from '@/lib/storage';
 
 interface ProductCardProps {
   product: any;
@@ -21,7 +22,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
     e.preventDefault();
     e.stopPropagation();
     addItem({
-      product_id: product.id,
+      product_id: product._id || product.id,
       name: product.name,
       sku: product.sku || product.handle,
       price: product.price,
@@ -55,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
 
           <div className="aspect-square bg-[#FAFAF8] overflow-hidden">
             <img
-              src={product.images?.[0]}
+              src={getPublicUrl(product.images?.[0] || '') || '/placeholder.svg'}
               alt={product.name}
               loading="lazy"
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"

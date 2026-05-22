@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { getPublicUrl } from '@/lib/storage';
 
 const CartDrawer: React.FC = () => {
   const { isOpen, closeCart, items, removeItem, updateQuantity, subtotalCents, format } = useCart();
@@ -51,7 +52,7 @@ const CartDrawer: React.FC = () => {
                     <div key={item.product_id + (item.variant_id || '')} className="flex gap-4">
                       <Link to={`/product/${item.handle}`} onClick={closeCart}>
                         <img
-                          src={item.image}
+                          src={getPublicUrl(item.image) || '/placeholder.svg'}
                           alt={item.name}
                           className="w-20 h-20 object-cover bg-gray-50 rounded"
                         />

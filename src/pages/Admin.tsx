@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { authApi, ordersApi, productsApi, settingsApi, chatApi, getAuthToken, removeAuthToken, setAuthToken } from '@/lib/api';
+import { getPublicUrl } from '@/lib/storage';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
+import ProductImageUploader from '@/components/ProductImageUploader';
 import { LogOut, LayoutDashboard, Package, ShoppingCart, MessageSquare, Users, Settings as SettingsIcon } from 'lucide-react';
 
 const ADMIN_TOKEN_STORAGE = 'admin_token';
@@ -264,6 +266,7 @@ export const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const load = async () => {
     try {
@@ -325,7 +328,7 @@ export const AdminProducts: React.FC = () => {
     <AdminLayout>
       <div className="flex justify-between items-center mb-8">
         <h1 className="font-serif text-3xl">Products</h1>
-        <button onClick={() => { setEditing({ name: '', handle: '', price: 0, vendor: '', status: 'active', images: '', tags: '' }); setShowForm(true); }} className="bg-[#059669] text-white px-5 py-2 text-sm">+ Add Product</button>
+        <button onClick={() => { setEditing({ name: '', handle: '', price: 0, vendor: '', status: 'active', images: [], tags: [] }); setShowForm(true); }} className="bg-[#059669] text-white px-5 py-2 text-sm">+ Add Product</button>
       </div>
 
       {showForm && editing && (
@@ -335,11 +338,19 @@ export const AdminProducts: React.FC = () => {
           <input required placeholder="Brand/Vendor" value={editing.vendor} onChange={(e) => setEditing({ ...editing, vendor: e.target.value })} className="border px-3 py-2" />
           <input required type="number" placeholder="Price (cents)" value={editing.price} onChange={(e) => setEditing({ ...editing, price: e.target.value })} className="border px-3 py-2" />
           <input type="number" placeholder="Inventory" value={editing.inventory_qty || 0} onChange={(e) => setEditing({ ...editing, inventory_qty: e.target.value })} className="border px-3 py-2" />
-          <input placeholder="Images (comma separated URLs)" value={Array.isArray(editing.images) ? editing.images.join(', ') : editing.images} onChange={(e) => setEditing({ ...editing, images: e.target.value })} className="border px-3 py-2 col-span-2" />
+          <div className="col-span-2">
+            <label className="block mb-2 text-sm font-medium text-gray-700">Product images</label>
+            <ProductImageUploader
+              value={Array.isArray(editing.images) ? editing.images : typeof editing.images === 'string' ? editing.images.split(',').map((s: string) => s.trim()).filter(Boolean) : []}
+              onChange={(images) => setEditing({ ...editing, images })}
+              onUploadingChange={setUploadingImages}
+              vendor={editing.vendor}
+            />
+          </div>
           <input placeholder="Tags (comma separated)" value={Array.isArray(editing.tags) ? editing.tags.join(', ') : editing.tags} onChange={(e) => setEditing({ ...editing, tags: e.target.value })} className="border px-3 py-2 col-span-2" />
           <textarea placeholder="Description" value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="border px-3 py-2 col-span-2" rows={3} />
           <div className="col-span-2 flex gap-3">
-            <button className="bg-[#059669] text-white px-5 py-2 text-sm">Save</button>
+            <button disabled={uploadingImages} className="bg-[#059669] text-white px-5 py-2 text-sm disabled:opacity-50">{uploadingImages ? 'Uploading images…' : 'Save'}</button>
             <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="border px-5 py-2 text-sm">Cancel</button>
           </div>
         </form>
@@ -353,7 +364,7 @@ export const AdminProducts: React.FC = () => {
           <tbody>
             {products.map((p) => (
               <tr key={p._id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="p-2"><img src={p.images?.[0]} className="w-12 h-12 object-cover" /></td>
+                <td className="p-2"><img src={getPublicUrl(p.images?.[0] || '') || '/placeholder.svg'} className="w-12 h-12 object-cover" /></td>
                 <td>{p.name}</td>
                 <td>{p.vendor}</td>
                 <td>${(p.price / 100).toFixed(2)}</td>

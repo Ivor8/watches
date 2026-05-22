@@ -5,6 +5,7 @@ import ProductCard from '@/components/ProductCard';
 import { productsApi } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { Minus, Plus, ShoppingBag, Heart, Check } from 'lucide-react';
+import { getPublicUrl } from '@/lib/storage';
 import { motion } from 'framer-motion';
 
 const SPEC_LABELS: Record<string, string> = {
@@ -78,7 +79,7 @@ const ProductDetail: React.FC = () => {
   }
 
   const inStock = product.inventory_qty == null || product.inventory_qty > 0;
-  const images = product.images?.length ? product.images : ['/placeholder.svg'];
+  const images = product.images?.length ? product.images.map((img: string) => getPublicUrl(img) || '/placeholder.svg') : ['/placeholder.svg'];
   const onSale = product.tags?.includes('sale');
   const originalPrice = onSale ? Math.round(product.price / 0.92) : null;
 
@@ -250,7 +251,7 @@ const ProductDetail: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
               {related.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
+                <ProductCard key={p._id || p.handle || i} product={p} index={i} />
               ))}
             </div>
           </section>

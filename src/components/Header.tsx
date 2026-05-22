@@ -147,7 +147,7 @@ const Header: React.FC = () => {
                         onClick={() => setShowSuggestions(false)}
                       >
                         <img
-                          src={s.images?.[0]}
+                          src={getPublicUrl(s.images?.[0] || '') || '/placeholder.svg'}
                           alt={s.name}
                           className="w-12 h-12 object-cover rounded"
                         />

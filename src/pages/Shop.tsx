@@ -239,7 +239,7 @@ const Shop: React.FC<ShopProps> = ({ brandProp: _brandProp }) => {
             ) : (
               <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                 {paginated.map((p, i) => (
-                  <ProductCard key={p.id} product={p} index={i} />
+                  <ProductCard key={p._id || p.handle || i} product={p} index={i} />
                 ))}
               </motion.div>
             )}
