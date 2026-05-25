@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { authApi, ordersApi, productsApi, settingsApi, chatApi, getAuthToken, removeAuthToken, setAuthToken } from '@/lib/api';
+import { authApi, ordersApi, productsApi, collectionsApi, settingsApi, chatApi, getAuthToken, removeAuthToken, setAuthToken } from '@/lib/api';
 import { getPublicUrl } from '@/lib/storage';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
 import ProductImageUploader from '@/components/ProductImageUploader';
-import { LogOut, LayoutDashboard, Package, ShoppingCart, MessageSquare, Users, Settings as SettingsIcon } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, ShoppingCart, MessageSquare, Users, Settings as SettingsIcon, Tag } from 'lucide-react';
 
 const ADMIN_TOKEN_STORAGE = 'admin_token';
 
@@ -86,6 +86,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const nav = [
     { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/admin/products', label: 'Products', icon: Package },
+    { to: '/admin/brands', label: 'Brands', icon: Tag },
     { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { to: '/admin/messages', label: 'Messages', icon: MessageSquare },
     { to: '/admin/admins', label: 'Admins', icon: Users },
@@ -197,6 +198,7 @@ export const AdminDashboard: React.FC = () => {
 
 export const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
   const load = async () => {
     try {
@@ -206,6 +208,17 @@ export const AdminOrders: React.FC = () => {
       console.error('Failed to load orders', error);
     }
   };
+
+  const viewOrder = async (id: string) => {
+    try {
+      const order = await ordersApi.getById(id);
+      setSelectedOrder(order);
+    } catch (error) {
+      console.error('Failed to load order details', error);
+      toast.error('Could not load order details');
+    }
+  };
+
   useEffect(() => { load(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
@@ -251,31 +264,88 @@ export const AdminOrders: React.FC = () => {
                     {['pending', 'paid', 'shipped', 'delivered', 'cancelled', 'refunded'].map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </td>
-                <td><button onClick={() => remove(o._id)} className="text-red-500 text-xs hover:underline">Delete</button></td>
+                <td className="space-x-2">
+                  <button onClick={() => viewOrder(o._id)} className="text-sky-600 text-xs hover:underline">View details</button>
+                  <button onClick={() => remove(o._id)} className="text-red-500 text-xs hover:underline">Delete</button>
+                </td>
               </tr>
             ))}
             {orders.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-500">No orders</td></tr>}
           </tbody>
         </table>
       </div>
+
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl bg-white rounded-3xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-xl font-semibold">Order details</h2>
+                <p className="text-sm text-gray-500">{String(selectedOrder._id).slice(0, 8)} • {selectedOrder.status}</p>
+              </div>
+              <button onClick={() => setSelectedOrder(null)} className="text-sm text-gray-600 hover:text-black">Close</button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Shipping</p>
+                  <p className="font-semibold">{selectedOrder.shipping_address?.name || 'No name'}</p>
+                  <p>{selectedOrder.shipping_address?.line1}</p>
+                  <p>{selectedOrder.shipping_address?.city}, {selectedOrder.shipping_address?.state} {selectedOrder.shipping_address?.postal_code}</p>
+                  <p>{selectedOrder.shipping_address?.country}</p>
+                  <p>{selectedOrder.shipping_address?.email}</p>
+                  <p>{selectedOrder.shipping_address?.phone}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Summary</p>
+                  <p><span className="font-semibold">Subtotal:</span> ${((selectedOrder.subtotal || 0) / 100).toFixed(2)}</p>
+                  <p><span className="font-semibold">Shipping:</span> ${((selectedOrder.shipping || 0) / 100).toFixed(2)}</p>
+                  <p><span className="font-semibold">Tax:</span> ${((selectedOrder.tax || 0) / 100).toFixed(2)}</p>
+                  <p className="font-semibold">Total: ${((selectedOrder.total || 0) / 100).toFixed(2)}</p>
+                  {selectedOrder.notes && <p className="text-sm text-gray-600">Notes: {selectedOrder.notes}</p>}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm uppercase tracking-wider text-gray-500 mb-3">Items</h3>
+                <div className="space-y-3">
+                  {selectedOrder.items?.map((item: any) => (
+                    <div key={item._id || item.product_id || item.variant_id || item.product_name} className="flex items-center justify-between gap-4 border border-gray-100 rounded-xl p-4">
+                      <div>
+                        <p className="font-semibold">{item.product_name}</p>
+                        <p className="text-sm text-gray-500">Qty: {item.quantity} · ${((item.unit_price || 0) / 100).toFixed(2)}</p>
+                      </div>
+                      <p className="font-semibold">${((item.total || 0) / 100).toFixed(2)}</p>
+                    </div>
+                  ))}
+                  {!selectedOrder.items?.length && <p className="text-sm text-gray-500">No item details available.</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };
 
 export const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
   const load = async () => {
     try {
-      const data = await productsApi.getAll();
-      setProducts(data || []);
+      const [productsData, brandsData] = await Promise.all([productsApi.getAll(), collectionsApi.getAll()]);
+      setProducts(productsData || []);
+      setBrands(brandsData || []);
     } catch (error) {
-      console.error('Failed to load products', error);
+      console.error('Failed to load products or brands', error);
     }
   };
+
   useEffect(() => { load(); }, []);
 
   const remove = async (id: string) => {
@@ -328,16 +398,66 @@ export const AdminProducts: React.FC = () => {
     <AdminLayout>
       <div className="flex justify-between items-center mb-8">
         <h1 className="font-serif text-3xl">Products</h1>
-        <button onClick={() => { setEditing({ name: '', handle: '', price: 0, vendor: '', status: 'active', images: [], tags: [] }); setShowForm(true); }} className="bg-[#059669] text-white px-5 py-2 text-sm">+ Add Product</button>
+        <button onClick={() => { setEditing({ name: '', handle: '', price: 0, compare_at_price: '', vendor: '', status: 'active', is_latest: false, images: [], tags: [] }); setShowForm(true); }} className="bg-[#059669] text-white px-5 py-2 text-sm">+ Add Product</button>
       </div>
 
       {showForm && editing && (
         <form onSubmit={save} className="bg-white border p-6 mb-6 grid grid-cols-2 gap-4">
-          <input required placeholder="Name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="border px-3 py-2 col-span-2" />
-          <input required placeholder="Handle (url slug)" value={editing.handle} onChange={(e) => setEditing({ ...editing, handle: e.target.value })} className="border px-3 py-2" />
-          <input required placeholder="Brand/Vendor" value={editing.vendor} onChange={(e) => setEditing({ ...editing, vendor: e.target.value })} className="border px-3 py-2" />
-          <input required type="number" placeholder="Price (cents)" value={editing.price} onChange={(e) => setEditing({ ...editing, price: e.target.value })} className="border px-3 py-2" />
-          <input type="number" placeholder="Inventory" value={editing.inventory_qty || 0} onChange={(e) => setEditing({ ...editing, inventory_qty: e.target.value })} className="border px-3 py-2" />
+          <div className="col-span-2 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <input required placeholder="Product name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Handle</label>
+            <input required placeholder="Handle (url slug)" value={editing.handle} onChange={(e) => setEditing({ ...editing, handle: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Brand</label>
+            <select
+              required
+              value={editing.vendor || ''}
+              onChange={(e) => setEditing({ ...editing, vendor: e.target.value })}
+              className="border px-3 py-2 w-full"
+            >
+              <option value="">Select a brand</option>
+              {brands.map((brand) => (
+                <option key={brand._id} value={brand.title}>{brand.title}</option>
+              ))}
+            </select>
+            {brands.length === 0 && (
+              <p className="text-xs text-gray-500">Add brands first in the Brands section before creating products.</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Price</label>
+            <input required type="number" placeholder="Price (cents)" value={editing.price} onChange={(e) => setEditing({ ...editing, price: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Compare at Price</label>
+            <input type="number" placeholder="Compare at price (cents)" value={editing.compare_at_price ?? ''} onChange={(e) => setEditing({ ...editing, compare_at_price: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Latest Product</label>
+            <label className="flex items-center gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(editing.is_latest)}
+                onChange={(e) => setEditing({ ...editing, is_latest: e.target.checked })}
+                className="accent-[#D4AF37]"
+              />
+              Mark as latest arrival
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Inventory</label>
+            <input type="number" placeholder="Inventory" value={editing.inventory_qty || 0} onChange={(e) => setEditing({ ...editing, inventory_qty: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
           <div className="col-span-2">
             <label className="block mb-2 text-sm font-medium text-gray-700">Product images</label>
             <ProductImageUploader
@@ -347,8 +467,14 @@ export const AdminProducts: React.FC = () => {
               vendor={editing.vendor}
             />
           </div>
-          <input placeholder="Tags (comma separated)" value={Array.isArray(editing.tags) ? editing.tags.join(', ') : editing.tags} onChange={(e) => setEditing({ ...editing, tags: e.target.value })} className="border px-3 py-2 col-span-2" />
-          <textarea placeholder="Description" value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="border px-3 py-2 col-span-2" rows={3} />
+          <div className="col-span-2 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Tags</label>
+            <input placeholder="Tags (comma separated)" value={Array.isArray(editing.tags) ? editing.tags.join(', ') : editing.tags} onChange={(e) => setEditing({ ...editing, tags: e.target.value })} className="border px-3 py-2 w-full" />
+          </div>
+          <div className="col-span-2 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <textarea placeholder="Description" value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="border px-3 py-2 w-full" rows={3} />
+          </div>
           <div className="col-span-2 flex gap-3">
             <button disabled={uploadingImages} className="bg-[#059669] text-white px-5 py-2 text-sm disabled:opacity-50">{uploadingImages ? 'Uploading images…' : 'Save'}</button>
             <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="border px-5 py-2 text-sm">Cancel</button>
@@ -375,6 +501,118 @@ export const AdminProducts: React.FC = () => {
                 </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </AdminLayout>
+  );
+};
+
+export const AdminBrands: React.FC = () => {
+  const [brands, setBrands] = useState<any[]>([]);
+  const [editingBrand, setEditingBrand] = useState<any | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const loadBrands = async () => {
+    try {
+      const data = await collectionsApi.getAll();
+      setBrands(data || []);
+    } catch (error) {
+      console.error('Failed to load brands', error);
+    }
+  };
+
+  useEffect(() => {
+    loadBrands();
+  }, []);
+
+  const openBrandForm = (brand: any | null = null) => {
+    setEditingBrand(brand || { title: '', handle: '', description: '', image_url: '', is_visible: true });
+    setShowForm(true);
+  };
+
+  const saveBrand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBrand) return;
+
+    const payload = {
+      handle: editingBrand.handle,
+      title: editingBrand.title,
+      description: editingBrand.description,
+      image_url: editingBrand.image_url,
+      is_visible: editingBrand.is_visible,
+    };
+
+    try {
+      if (editingBrand._id) {
+        await collectionsApi.update(editingBrand._id, payload);
+      } else {
+        await collectionsApi.create(payload);
+      }
+      setShowForm(false);
+      setEditingBrand(null);
+      loadBrands();
+      toast.success('Brand saved');
+    } catch (error) {
+      console.error('Failed to save brand', error);
+      toast.error('Could not save brand');
+    }
+  };
+
+  const removeBrand = async (id: string) => {
+    if (!confirm('Delete this brand?')) return;
+    try {
+      await collectionsApi.delete(id);
+      loadBrands();
+      toast.success('Brand deleted');
+    } catch (error) {
+      console.error('Failed to delete brand', error);
+      toast.error('Could not delete brand');
+    }
+  };
+
+  return (
+    <AdminLayout>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="font-serif text-3xl">Brands</h1>
+        <button onClick={() => openBrandForm()} className="bg-[#059669] text-white px-5 py-2 text-sm">+ Add Brand</button>
+      </div>
+
+      {showForm && editingBrand && (
+        <form onSubmit={saveBrand} className="bg-white border p-6 mb-6 grid grid-cols-2 gap-4">
+          <input required placeholder="Brand title" value={editingBrand.title} onChange={(e) => setEditingBrand({ ...editingBrand, title: e.target.value })} className="border px-3 py-2 col-span-2" />
+          <input required placeholder="Handle (url slug)" value={editingBrand.handle} onChange={(e) => setEditingBrand({ ...editingBrand, handle: e.target.value })} className="border px-3 py-2" />
+          <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+            <input type="checkbox" checked={editingBrand.is_visible} onChange={(e) => setEditingBrand({ ...editingBrand, is_visible: e.target.checked })} className="accent-[#D4AF37]" />
+            <span className="text-sm">Visible</span>
+          </label>
+          <textarea placeholder="Description" value={editingBrand.description} onChange={(e) => setEditingBrand({ ...editingBrand, description: e.target.value })} className="border px-3 py-2 col-span-2" rows={3} />
+          <div className="col-span-2 flex gap-3">
+            <button className="bg-[#059669] text-white px-5 py-2 text-sm">Save Brand</button>
+            <button type="button" onClick={() => { setShowForm(false); setEditingBrand(null); }} className="border px-5 py-2 text-sm">Cancel</button>
+          </div>
+        </form>
+      )}
+
+      <div className="bg-white border border-gray-100 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase tracking-wider text-gray-500 border-b">
+            <tr><th className="p-4">Image</th><th>Title</th><th>Handle</th><th>Status</th><th /></tr>
+          </thead>
+          <tbody>
+            {brands.map((brand) => (
+              <tr key={brand._id} className="border-b last:border-0 hover:bg-gray-50">
+                <td className="p-4"><img src={brand.image_url || '/placeholder.svg'} alt={brand.title} className="w-12 h-12 object-cover rounded" /></td>
+                <td>{brand.title}</td>
+                <td>{brand.handle}</td>
+                <td>{brand.is_visible ? 'Visible' : 'Hidden'}</td>
+                <td>
+                  <button onClick={() => openBrandForm(brand)} className="text-blue-600 text-xs mr-3 hover:underline">Edit</button>
+                  <button onClick={() => removeBrand(brand._id)} className="text-red-500 text-xs hover:underline">Delete</button>
+                </td>
+              </tr>
+            ))}
+            {brands.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-500">No brands found.</td></tr>}
           </tbody>
         </table>
       </div>

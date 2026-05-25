@@ -20,7 +20,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     productsApi.getAll()
       .then((data) => {
-        const active = data.filter((p: any) => p.status === 'active').slice(0, 8);
+        const active = data.filter((p: any) => p.status === 'active' && p.is_latest).slice(0, 8);
         setProducts(active);
       })
       .catch((err) => console.error('Error fetching products:', err));

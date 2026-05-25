@@ -7,6 +7,8 @@ const productSchema = new mongoose.Schema(
     vendor: String,
     product_type: String,
     price: { type: Number, required: true },
+    compare_at_price: Number,
+    is_latest: { type: Boolean, default: false },
     images: [String],
     description: String,
     tags: [String],

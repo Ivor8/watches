@@ -13,9 +13,10 @@ interface ShopProps {
 const Shop: React.FC<ShopProps> = ({ brandProp: _brandProp }) => {
   const params = useParams();
   const brandHandle = _brandProp || params.brand;
+  const routeCategory = params.category;
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q')?.toLowerCase() || '';
-  const categoryParam = searchParams.get('category') || '';
+  const categoryParam = searchParams.get('category') || routeCategory || '';
 
   const [products, setProducts] = useState<any[]>([]);
   const [collection, setCollection] = useState<any>(null);
@@ -32,15 +33,19 @@ const Shop: React.FC<ShopProps> = ({ brandProp: _brandProp }) => {
     const load = async () => {
       setLoading(true);
       try {
+        const allProducts = await productsApi.getAll();
+
         if (brandHandle) {
           const col = await collectionsApi.getByHandle(brandHandle);
           setCollection(col);
-          const allProducts = await productsApi.getAll();
-          const filtered = allProducts.filter((p: any) => p.vendor?.toLowerCase() === col.title?.toLowerCase());
+          const filtered = allProducts.filter(
+            (p: any) => p.vendor?.toLowerCase() === col.title?.toLowerCase() && p.is_latest
+          );
           setProducts(filtered);
         } else {
-          const allProducts = await productsApi.getAll();
-          setProducts(allProducts);
+          setCollection(null);
+          const filtered = allProducts.filter((p: any) => !p.is_latest);
+          setProducts(filtered);
         }
       } catch (err) {
         console.error('Error loading products:', err);
@@ -49,7 +54,7 @@ const Shop: React.FC<ShopProps> = ({ brandProp: _brandProp }) => {
     };
     load();
     setPage(1);
-    if (categoryParam) setSelectedCats([categoryParam]);
+    setSelectedCats(categoryParam ? [categoryParam] : []);
   }, [brandHandle, categoryParam]);
 
   const categories = useMemo(() => {

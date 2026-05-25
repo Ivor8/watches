@@ -6,6 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import setupSockets from './sockets/chatSocket.js';
@@ -18,11 +22,6 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);

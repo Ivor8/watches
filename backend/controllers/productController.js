@@ -44,8 +44,9 @@ export const getProductById = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-    const { name, handle, vendor, product_type, price, description, tags, metadata, inventory_qty, status, sku, images: bodyImages } = req.body;
+    const { name, handle, vendor, product_type, price, compare_at_price, description, tags, metadata, inventory_qty, status, sku, is_latest, images: bodyImages } = req.body;
     
+    const latest = is_latest === 'true' || is_latest === true;
     let images = [];
     if (req.files && req.files.images) {
       const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
@@ -64,6 +65,8 @@ export const createProduct = async (req, res) => {
       vendor,
       product_type,
       price: Math.round(Number(price)),
+      compare_at_price: compare_at_price ? Math.round(Number(compare_at_price)) : undefined,
+      is_latest: latest,
       description,
       tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       metadata,
@@ -83,17 +86,16 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, handle, vendor, product_type, price, description, tags, metadata, inventory_qty, status, sku } = req.body;
-    
+    const { name, handle, vendor, product_type, price, compare_at_price, description, tags, metadata, inventory_qty, status, sku, is_latest } = req.body;
+
     const updateData = {
       name,
       handle,
       vendor,
       product_type,
       price: price ? Math.round(Number(price)) : undefined,
-      description,
-      tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
-      metadata,
+      compare_at_price: compare_at_price ? Math.round(Number(compare_at_price)) : undefined,
+      is_latest: is_latest === 'true' || is_latest === true,
       inventory_qty: inventory_qty ? Number(inventory_qty) : undefined,
       status,
       sku,

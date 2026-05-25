@@ -15,7 +15,7 @@ import {
   About, Contact, Reviews, PrivacyPolicy, RefundPolicy, ShippingPolicy, Account
 } from "./pages/StaticPages";
 import {
-  AdminLogin, AdminDashboard, AdminOrders, AdminProducts, AdminMessages, AdminAdmins, AdminSettings
+  AdminLogin, AdminDashboard, AdminOrders, AdminProducts, AdminBrands, AdminMessages, AdminAdmins, AdminSettings
 } from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -50,6 +50,7 @@ const App = () => (
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
               <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/brands" element={<AdminBrands />} />
               <Route path="/admin/messages" element={<AdminMessages />} />
               <Route path="/admin/admins" element={<AdminAdmins />} />
               <Route path="/admin/settings" element={<AdminSettings />} />

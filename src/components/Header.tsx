@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingBag, User, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X } from 'lucide-react';
 import Logo from './Logo';
 import { useCart } from '@/contexts/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { productsApi, settingsApi } from '@/lib/api';
+import { productsApi, collectionsApi, settingsApi } from '@/lib/api';
+import { getPublicUrl } from '@/lib/storage';
 
 const NAV_LINKS = [
   { name: 'Home', to: '/' },
@@ -31,7 +32,7 @@ const Header: React.FC = () => {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openBrand, setOpenBrand] = useState<string | null>(null);
+  const [brandLinks, setBrandLinks] = useState<any[]>([]);
   const [promoText, setPromoText] = useState('Pay with crypto & save 15%! Code: LUXURY15');
   const { count, openCart, format, subtotalCents } = useCart();
   const navigate = useNavigate();
@@ -68,6 +69,12 @@ const Header: React.FC = () => {
     }, 200);
     return () => clearTimeout(t);
   }, [searchTerm]);
+
+  useEffect(() => {
+    collectionsApi.getAll()
+      .then((data) => setBrandLinks(data || []))
+      .catch((err) => console.error('Failed to load brands', err));
+  }, []);
 
   const onSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,47 +226,14 @@ const Header: React.FC = () => {
                   Home
                 </Link>
               </li>
-              {BRANDS.map((b) => (
-                <li
-                  key={b.handle}
-                  className="relative"
-                  onMouseEnter={() => setOpenBrand(b.handle)}
-                  onMouseLeave={() => setOpenBrand(null)}
-                >
+              {brandLinks.map((brand) => (
+                <li key={brand.handle}>
                   <Link
-                    to={`/brand/${b.handle}`}
-                    className="flex items-center gap-1 px-4 py-3.5 text-sm font-medium hover:text-[#D4AF37] transition-colors"
+                    to={`/brand/${brand.handle}`}
+                    className="block px-4 py-3.5 text-sm font-medium hover:text-[#D4AF37] transition-colors"
                   >
-                    {b.name}
-                    {b.subs.length > 0 && <ChevronDown className="w-3 h-3" />}
+                    {brand.title}
                   </Link>
-                  <AnimatePresence>
-                    {openBrand === b.handle && b.subs.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute top-full left-0 bg-white text-gray-900 shadow-2xl rounded-b-lg min-w-[220px] py-2 z-50 border-t-2 border-[#D4AF37]"
-                      >
-                        {b.subs.map((sub) => (
-                          <Link
-                            key={sub}
-                            to={`/brand/${b.handle}?category=${encodeURIComponent(sub)}`}
-                            className="block px-5 py-2.5 text-sm hover:bg-gray-50 hover:text-[#D4AF37] transition-colors"
-                          >
-                            {sub}
-                          </Link>
-                        ))}
-                        <Link
-                          to={`/brand/${b.handle}`}
-                          className="block px-5 py-2.5 text-xs uppercase tracking-wider text-[#D4AF37] border-t mt-1 pt-3"
-                        >
-                          View All {b.name} →
-                        </Link>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </li>
               ))}
             </ul>
@@ -323,15 +297,14 @@ const Header: React.FC = () => {
                 <div className="px-4 py-3 text-xs uppercase tracking-wider text-gray-500 mt-2">
                   Brands
                 </div>
-                {BRANDS.map((b) => (
+                {brandLinks.map((brand) => (
                   <Link
-                    key={b.handle}
-                    to={`/brand/${b.handle}`}
+                    key={brand.handle}
+                    to={`/brand/${brand.handle}`}
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-between px-4 py-3 text-sm font-medium border-b border-gray-50"
+                    className="block px-4 py-3 text-sm font-medium border-b border-gray-50"
                   >
-                    {b.name}
-                    <ChevronDown className="w-4 h-4 -rotate-90" />
+                    {brand.title}
                   </Link>
                 ))}
               </nav>
