@@ -8,7 +8,8 @@ import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '.env') });
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.join(__dirname, envFile) });
 
 import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
@@ -24,7 +25,8 @@ import contactRoutes from './routes/contactRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 
 const app = express();
-const server = http.createServer(app);
+const isVercel = process.env.VERCEL === '1';
+const server = isVercel ? null : http.createServer(app);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const allowedOrigins = [
   FRONTEND_URL,
@@ -51,12 +53,15 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-const io = new Server(server, {
-  cors: {
-    origin: true,
-    methods: ['GET', 'POST'],
-  },
-});
+let io = null;
+if (!isVercel) {
+  io = new Server(server, {
+    cors: {
+      origin: true,
+      methods: ['GET', 'POST'],
+    },
+  });
+}
 
 // Middleware
 app.use(cors(corsOptions));
@@ -86,15 +91,18 @@ app.get('/api/health', (req, res) => {
 });
 
 // Socket.io setup
-setupSockets(io);
+if (!isVercel) {
+  setupSockets(io);
+}
 
 // Error handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (!isVercel) {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 export default app;
