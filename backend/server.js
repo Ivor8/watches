@@ -85,6 +85,11 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/uploads', uploadRoutes);
 
+// Backend root status
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'Backend API is running', api: '/api/health' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
