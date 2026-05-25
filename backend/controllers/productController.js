@@ -1,5 +1,25 @@
 import Product from '../models/Product.js';
+import fs from 'fs/promises';
 import path from 'path';
+
+const deleteLocalImage = async (imagePath) => {
+  if (!imagePath || typeof imagePath !== 'string') return;
+
+  let normalized = imagePath.trim();
+  const urlMatch = normalized.match(/https?:\/\/[^/]+(\/uploads\/.*)$/);
+  if (urlMatch) {
+    normalized = urlMatch[1];
+  }
+
+  normalized = normalized.replace(/^https?:\/\//, '');
+  normalized = normalized.replace(/^.*?\/uploads\//, '/uploads/');
+  normalized = path.posix.normalize(normalized).replace(/^\/+/, '/');
+
+  if (!normalized.startsWith('/uploads/')) return;
+
+  const absolutePath = path.join(process.cwd(), normalized.slice(1));
+  await fs.unlink(absolutePath).catch(() => null);
+};
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -127,6 +147,14 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const images = Array.isArray(product.images) ? product.images : typeof product.images === 'string' ? product.images.split(',').map((item) => item.trim()).filter(Boolean) : [];
+    await Promise.allSettled(images.map((image) => deleteLocalImage(image)));
+
     await Product.findByIdAndDelete(id);
     res.json({ message: 'Product deleted' });
   } catch (error) {
