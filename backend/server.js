@@ -90,9 +90,21 @@ app.get('/', (req, res) => {
   res.json({ status: 'OK', message: 'Backend API is running', api: '/api/health' });
 });
 
+const maskUri = (uri) => {
+  if (!uri) return 'none';
+  if (uri.startsWith('mongodb+srv://')) {
+    return `mongodb+srv://***@${uri.split('@')[1]}`;
+  }
+  return uri.replace(/(.{8})$/, '***');
+};
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK' });
+  res.json({
+    status: 'OK',
+    environment: process.env.NODE_ENV || 'unknown',
+    db: maskUri(process.env.MONGODB_URI),
+  });
 });
 
 // Socket.io setup
