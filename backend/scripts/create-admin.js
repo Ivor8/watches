@@ -6,7 +6,8 @@ import Admin from '../models/Admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '../.env') });
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: path.join(__dirname, '..', envFile) });
 
 const ADMIN_EMAIL = 'watches@gmail.com';
 const ADMIN_PASSWORD = 'admin123';

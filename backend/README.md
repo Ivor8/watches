@@ -14,7 +14,7 @@ Edit `.env` file with your settings:
 ```bash
 NODE_ENV=development
 PORT=5000
-MONGODB_URI=mongodb+srv://nirttech_db_user:wotW6TPWRyN5O0vj@cluster0.jvesyel.mongodb.net/?appName=Cluster0
+MONGODB_URI=mongodb+srv://clinirt_db_user:LaoJ55xzBMzUaU0P@cluster0.5qr0ban.mongodb.net/?appName=Cluster0
 JWT_SECRET=change_me_in_production
 JWT_EXPIRY=7d
 FRONTEND_URL=http://localhost:5173
